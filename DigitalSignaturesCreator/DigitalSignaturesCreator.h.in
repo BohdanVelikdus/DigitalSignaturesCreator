@@ -1,2 +1,4 @@
+#pragma once 
+
 #define DigitalSignaturesCreator_VERSION_MAJOR @DigitalSignaturesCreator_VERSION_MAJOR@
 #define DigitalSignaturesCreator_VERSION_MINOR @DigitalSignaturesCreator_VERSION_MINOR@
