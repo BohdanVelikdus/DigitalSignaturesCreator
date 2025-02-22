@@ -3,6 +3,7 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <optional>
 
 #include "openssl/pem.h"
 #include "openssl/rsa.h"
@@ -74,6 +75,12 @@ public:
 
     bool getInitFlag();
 
+    Status verifyIfFile(const std::string& path);
+
+    std::optional<std::vector<unsigned char>> getHashOfDocumentByPath(const std::string& path);
+
+    void writeHashIntoFile(const std::string& path, std::vector<unsigned char>& hash);
+
 private:
 
     Status WriteCertToFiles(std::fstream& filePRI, std::fstream& filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>> &&keyPair,Sign certType);
@@ -98,5 +105,7 @@ private:
     std::function<void(OSSL_ENCODER_CTX*)> customDeleter_OSSL_ENCODER_CTX = [](OSSL_ENCODER_CTX *ptr){if(ptr){OSSL_ENCODER_CTX_free(ptr);}};
     std::function<void(BIO*)> customDeleter_BIO = [](BIO* ptr){if(ptr){BIO_free(ptr);}};
     std::function<void(unsigned char*)> customDeleter_unsigned_char = [](unsigned char* ptr){if(ptr){OPENSSL_free(ptr);}};
+    std::function<void(EVP_MD_CTX*)> customDeleter_EVP_MD_CTX = [](EVP_MD_CTX *ptr){if(ptr){EVP_MD_CTX_free(ptr);}};
+
 
 };

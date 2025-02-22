@@ -20,7 +20,6 @@
 Service::Service()
 {
     this->m_type = Hash::SHA_512;
-
 }
 
 std::string Service::getHashType()
@@ -68,6 +67,105 @@ Status Service::verifyIfFolder(std::string path)
         return Status::FAILURE;
     }
 }  
+
+Status Service::verifyIfFile(const std::string& path)
+{
+    std::filesystem::path path_fs = std::filesystem::absolute(path);
+    if(std::filesystem::exists(path_fs) && std::filesystem::is_regular_file(path_fs))
+    {
+        return Status::SUCCESS;
+    }
+    return Status::FAILURE;
+}
+
+std::optional<std::vector<unsigned char>> Service::getHashOfDocumentByPath(const std::string& path)
+{
+    std::ifstream file(path, std::ios::binary);
+    if(!file)
+    {
+        return std::nullopt;    
+    }
+
+    std::unique_ptr<EVP_MD_CTX, std::function<void(EVP_MD_CTX*)>> ctx(EVP_MD_CTX_new(), this->customDeleter_EVP_MD_CTX);
+    if(ctx.get() == nullptr)
+    {
+        std::cout << "Error with a initializing a md_ctx\n";
+        return std::nullopt;
+    }
+
+    const EVP_MD* hashAlgo = nullptr;
+    if(this->m_type == Hash::SHA_256)
+    {
+        hashAlgo = EVP_sha256();
+    }
+    else if(this->m_type == Hash::SHA_512)
+    {
+        hashAlgo = EVP_sha512();
+    }   
+    
+    if(EVP_DigestInit_ex(ctx.get(), hashAlgo, nullptr) != 1)
+    {
+        std::cout << "Cannot set the digest algo\n";
+        return std::nullopt;
+    }
+
+    std::vector<unsigned char> bufferToReadFromFile(4096);
+    while(file.read(reinterpret_cast<char* >(bufferToReadFromFile.data()), bufferToReadFromFile.size()) || file.gcount() > 0)
+    {
+        if(EVP_DigestUpdate(ctx.get(), bufferToReadFromFile.data(), file.gcount()) != 1)
+        {
+            std::cout << "Cannot update a context, by appending a data from file";
+            return std::nullopt;
+        }
+    }
+
+    std::vector<unsigned char> hash(EVP_MD_size(hashAlgo));
+    unsigned int hash_length = 0;
+    if(EVP_DigestFinal_ex(ctx.get(), hash.data(), &hash_length) !=  1)
+    {
+        std::cout << "Cannot find the sha512 of the file in digestfile_ex\n";
+        return std::nullopt;
+    }
+    else
+    {
+        return hash;
+    }
+}
+
+void Service::writeHashIntoFile(const std::string &path, std::vector<unsigned char> &hash)
+{
+    std::filesystem::path path_ = std::filesystem::absolute(path);
+    std::filesystem::path pathForCreation = path_.parent_path();
+    std::string fileName = std::string(path_.filename().c_str()) + ((this->m_type == Hash::SHA_256) ? ".sha256" : ".sha512");
+    if(pathForCreation.empty())
+    {
+        pathForCreation = path_.root_path();
+        
+    }
+    pathForCreation = pathForCreation / fileName;
+    std::ofstream fileToWrite(pathForCreation);
+    if(!fileToWrite)
+    {
+        std::cout << "Cannot create a file, potentially other users does not have a permissions to write into it\n"
+                  << "Or executable does not have permission\n";
+        return;
+    }
+    if(this->m_type == Hash::SHA_256)
+    {
+        fileToWrite << "SHA2-256(" << path_.filename().c_str() << ")= ";
+    }
+    else if(this->m_type == Hash::SHA_512)
+    {
+        fileToWrite << "SHA2-512(" << path_.filename().c_str() << ")= ";
+    }
+
+    for (unsigned int i = 0; i < hash.size(); i++) {
+        fileToWrite << std::hex << /*std::uppercase <<*/ (hash[i] >> 4) << (hash[i] & 0xF);
+    }
+    fileToWrite.close();
+    std::cout << "Hash written to " << pathForCreation.c_str() << std::endl;
+    return ;
+}
 
 void Service::setState(CertState state)
 {
@@ -304,7 +402,6 @@ Status Service::createRSACert(std::fstream &filePRI, std::fstream &filePUB)
     keyPair.reset(k);
     return WriteCertToFiles(filePRI, filePUB, std::move(keyPair), Sign::RSA);
 }
-
 
 Status Service::createECDDSACert(std::fstream& filePRI, std::fstream& filePUB)
 {

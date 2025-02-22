@@ -54,6 +54,8 @@ void Program::start()
         std::cout << "\t3 - get the hash of document\n";
         std::cout << "\t4 - set the parameters\n";
         std::cout << "\t0 - exit the program\n";
+        Status tempStatus = Status::FAILURE;
+        std::string pathToFileForHash = "";
         input = getInputFromConsoleNum();
         try
         {
@@ -76,8 +78,65 @@ void Program::start()
             
             break;
         case 3:
-            std::cout << "The algo for hashing(to change it, select 4 in start menu): " << m_service->getHashType(); 
-            std::cout << "Enter the path to the file: " ;
+            std::cout << "The algo for hashing(to change it, select 4 in start menu)(# to return to the menu): " << m_service->getHashType(); 
+            do
+            {
+                std::cout << "\nEnter the path to the file:\n";
+                input = getInputFromConsoleString();
+                if(input == "_")
+                {
+                    m_status = false;
+                    return;
+                }
+                if(input == "#")
+                {
+                    break;
+                }
+                else
+                {
+                    // we get the path to the file, so have to verify a path
+                    tempStatus = m_service->verifyIfFile(input);
+                    if(tempStatus ==  Status::SUCCESS)
+                    {
+                        pathToFileForHash = input;
+                        // the file exists, so create a hash of it
+                        std::optional<std::vector<unsigned char>> hash = m_service->getHashOfDocumentByPath(input);
+                        if(hash.has_value())
+                        {
+                            tempStatus = Status::SUCCESS;
+                            std::cout << "Got the hash of file, printing...\n";
+                            for (unsigned char byte : hash.value()) {
+                                std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+                            }
+                            std::cout << std::endl;
+                            
+                            std::cout << "Do you want to write it into file(YES/NO):\n";
+                            input = getInputFromConsoleString();
+                            if(input == "_")
+                            {
+                                return;
+                            }
+                            else
+                            {
+                                std::transform(input.begin(), input.end(), input.begin(), [](auto c){return std::tolower(c);});
+                                if(input == "yes")
+                                {
+                                    // have to save into a file
+                                    m_service->writeHashIntoFile(pathToFileForHash, hash.value());
+                                }                                
+                            }
+                        }
+                        else
+                        {
+                            std::cout << "Enter other path";
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "The file is not correct, enter other path for file\n";
+                    }
+                }
+            }while(tempStatus == Status::FAILURE);
             break;
         case 4:
             
