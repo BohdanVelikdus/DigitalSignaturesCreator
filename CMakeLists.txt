@@ -16,5 +16,13 @@ set(FullDirectory ${CMAKE_SOURCE_DIR}/bin/${CMAKE_SYSTEM_NAME}${OSBitness}/${CMA
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${FullDirectory})
 
 include(CTest)
+
+set(buildOpenSSLProject FALSE)
+find_package(OpenSSL QUIET)
+if(NOT OpenSSL_FOUND)
+    message(STATUS "OpenSSL does not found, build it using a submodule")
+    set(build_OpenSSL_project TURE)
+endif()
+
 add_subdirectory(./external)
 add_subdirectory(./DigitalSignaturesCreator)
