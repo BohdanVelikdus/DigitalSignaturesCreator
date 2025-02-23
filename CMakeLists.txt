@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in Debug mode")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -25,7 +28,7 @@ endif()
 set(FullDirectory ${CMAKE_SOURCE_DIR}/bin/${CMAKE_SYSTEM_NAME}${OSBitness}/${CMAKE_BUILD_TYPE})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${FullDirectory})
 
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/exteral/dependecies)
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/dependencies)
 
 include(CTest)
 

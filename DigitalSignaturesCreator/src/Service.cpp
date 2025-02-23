@@ -136,7 +136,7 @@ void Service::writeHashIntoFile(const std::string &path, std::vector<unsigned ch
 {
     std::filesystem::path path_ = std::filesystem::absolute(path);
     std::filesystem::path pathForCreation = path_.parent_path();
-    std::string fileName = std::string(path_.filename().c_str()) + ((this->m_type == Hash::SHA_256) ? ".sha256" : ".sha512");
+    std::string fileName = std::string(path_.filename().string()) + ((this->m_type == Hash::SHA_256) ? ".sha256" : ".sha512");
     if(pathForCreation.empty())
     {
         pathForCreation = path_.root_path();
@@ -152,18 +152,18 @@ void Service::writeHashIntoFile(const std::string &path, std::vector<unsigned ch
     }
     if(this->m_type == Hash::SHA_256)
     {
-        fileToWrite << "SHA2-256(" << path_.filename().c_str() << ")= ";
+        fileToWrite << "SHA2-256(" << path_.filename().string() << ")= ";
     }
     else if(this->m_type == Hash::SHA_512)
     {
-        fileToWrite << "SHA2-512(" << path_.filename().c_str() << ")= ";
+        fileToWrite << "SHA2-512(" << path_.filename().string() << ")= ";
     }
 
     for (unsigned int i = 0; i < hash.size(); i++) {
         fileToWrite << std::hex << /*std::uppercase <<*/ (hash[i] >> 4) << (hash[i] & 0xF);
     }
     fileToWrite.close();
-    std::cout << "Hash written to " << pathForCreation.c_str() << std::endl;
+    std::cout << "Hash written to " << pathForCreation.string() << std::endl;
     return ;
 }
 

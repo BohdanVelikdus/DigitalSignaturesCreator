@@ -4,7 +4,6 @@
 #include <thread>
 #include <chrono>
 
-#include <execinfo.h>
 #include <signal.h>
 #include <stdlib.h>
 
@@ -18,17 +17,6 @@ using namespace std::literals;
 #include "DigitalSignaturesCreator.h"
 
 std::shared_ptr<Program> pr;
-
-void print_stacktrace() {
-    void *buffer[10];
-    int size = backtrace(buffer, 10);
-    char **symbols = backtrace_symbols(buffer, size);
-
-    for (int i = 0; i < size; i++) {
-        std::cout << symbols[i] << std::endl;
-    }
-    free(symbols);
-}
 
 void exitGracefully(int)
 {

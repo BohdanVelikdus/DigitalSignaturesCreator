@@ -21,6 +21,7 @@ def run_conan(os_type_str):
 
 if __name__== "__main__":
     if os.name == "nt":
+        print("windows")
         run_conan("win")
     elif os.name == "posix":
         run_conan("unix")
