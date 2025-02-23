@@ -2,7 +2,7 @@
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DigitalSignaturesCreator.h.in ${CMAKE_BINARY_DIR}/DigitalSignaturesCreator.h)
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
-#find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 if(OpenSSL_FOUND)
     message(STATUS "OpenSSL found!")
