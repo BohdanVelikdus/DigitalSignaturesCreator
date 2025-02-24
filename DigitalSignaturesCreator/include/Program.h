@@ -14,6 +14,8 @@ class Program
 public:
     Program();
 
+    ~Program();
+
     void start();
 
     void setStatus(bool status);
@@ -21,20 +23,24 @@ public:
     std::string getInputFromConsoleNum();
 
     std::string getInputFromConsoleString();
-
-    ~Program();
     
+    void configurePrivateKey();
+
+    Status createNewCertificatePublicAndPrivateKey();
+
+
+
     Status configureHash();
 
     Status configureCert();
 
-    Status createNewCert();
 
     Status chooseAlgoSigning();
 
     Status chooseIfEncrypted();
 
-    void configureLib();
+
+
 
     void configureHashPublic();
 

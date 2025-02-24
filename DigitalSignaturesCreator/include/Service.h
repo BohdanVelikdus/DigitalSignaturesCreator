@@ -73,7 +73,9 @@ public:
     // check if the ctrl+c or ctrl+d is pressed
     bool signalFlag = false;
 
-    bool getInitFlag();
+    bool getInitFlagPriKey();
+
+    bool getInitFlagPubKey();
 
     Status verifyIfFile(const std::string& path);
 
@@ -98,11 +100,11 @@ private:
     Status createECDDSACert(std::fstream& filePRI, std::fstream& filePUB);
 
     Hash m_type;
-    CertState m_state;
     Sign m_sign;
     Passwd m_passwd;
 
-    bool flagInit = false;
+    bool flagInitPrivate = false;
+    bool flagInitPublic = false;
 
     std::string m_pathToNewCertFolder = "";
     std::string m_pathToPriKey = "";

@@ -48,8 +48,10 @@ int main()
     if (OpenSSL_add_all_algorithms() == 0) {
         std::cout << "Error: OpenSSL failed to load algorithms.\n";
     }
-    //pr->configureLib();
+
     pr->configureHashPublic();
+
     pr->start();
+
     return 0;
 }

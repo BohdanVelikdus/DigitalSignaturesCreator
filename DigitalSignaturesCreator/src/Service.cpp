@@ -37,6 +37,7 @@ std::string Service::getHashType()
     }
 }
 
+
 Status Service::setHashType(std::string nameOfType)
 {
     if(nameOfType == "sha_256" || nameOfType == "sha-256")
@@ -55,6 +56,7 @@ Status Service::setHashType(std::string nameOfType)
     }
 }
 
+
 Status Service::verifyIfFolder(std::string path)
 {
     std::filesystem::path path_ = std::filesystem::absolute(path);
@@ -66,9 +68,19 @@ Status Service::verifyIfFolder(std::string path)
     {
         return Status::FAILURE;
     }
-}  
+}
 
-Status Service::verifyIfFile(const std::string& path)
+bool Service::getInitFlagPriKey()
+{
+    return this->flagInitPrivate;
+}
+
+bool Service::getInitFlagPubKey()
+{
+    return this->flagInitPublic;
+}
+
+Status Service::verifyIfFile(const std::string &path)
 {
     std::filesystem::path path_fs = std::filesystem::absolute(path);
     if(std::filesystem::exists(path_fs) && std::filesystem::is_regular_file(path_fs))
@@ -85,16 +97,6 @@ std::vector<unsigned char> Service::readFile(const std::string& filename) {
     }
     return std::vector<unsigned char>(std::istreambuf_iterator<char>(file), {});
 }
-
-//static int passwordCallback(char* buf, int size, int rwflag, void* userdata) {
-//    const char* password = static_cast<const char*>(userdata);
-//    size_t len = strlen(password);
-//    if (len >= static_cast<size_t>(size)) {
-//        return 0; 
-//    }
-//    memcpy(buf, password, len + 1);
-//    return static_cast<int>(len);
-//}
 
 static int passwordCallback(char* buf, int size, int rwflag, void* userdata) {
     Service* service = static_cast<Service*>(userdata);
@@ -236,7 +238,7 @@ Status Service::digitalSignDocument(const std::string &filename)
     }
     // writing a digital signature into the file
     writeSignatureIntoFile(path_, signature);
-    return Status::FAILURE;
+    return Status::SUCCESS;
 }
 
 void Service::writeSignatureIntoFile(const std::string &path, std::vector<unsigned char> &signature)
@@ -455,7 +457,8 @@ Status Service::CreateCert()
                 }
                 else 
                 {
-                    this->flagInit = true;
+                    this->flagInitPrivate = true;
+                    this->flagInitPublic = true;
                 }
                 return status;
             }
@@ -473,11 +476,6 @@ void handleError()
         ERR_error_string_n(error_code, error_string, sizeof(error_string));
         std::cerr << "OpenSSL Error: " << error_string << std::endl;
     }
-}
-
-bool Service::getInitFlag()
-{
-    return this->flagInit;
 }
 
 Status Service::WriteCertToFiles(std::fstream &filePRI, std::fstream &filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY *)>> &&keyPair, Sign certType)
