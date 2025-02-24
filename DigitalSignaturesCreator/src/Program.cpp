@@ -72,7 +72,35 @@ void Program::start()
         switch (dec)
         {
         case 1:
-            
+            do
+            {
+                std::cout << "\nEnter the path to the file:\n";
+                input = getInputFromConsoleString();
+                if(input == "_")
+                {
+                    m_status = false;
+                    return;
+                }
+                if(input == "#")
+                {
+                    break;
+                }
+                else
+                {
+                    tempStatus = m_service->verifyIfFile(input);
+                    if(tempStatus == Status::FAILURE)
+                    {
+                        std::cout <<  "Wrong file\n";
+                        continue;
+                    }
+                    if(!m_service->getInitFlag())
+                    {
+                        std::cout << "Need a new certificate\n";
+                        this->configureCertPublic();
+                    }
+                    tempStatus = m_service->digitalSignDocument(input);  
+                }
+            }while(tempStatus == Status::FAILURE);
             break;
         case 2:
             

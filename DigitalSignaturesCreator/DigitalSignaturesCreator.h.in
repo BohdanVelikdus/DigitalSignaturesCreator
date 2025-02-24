@@ -1,4 +1,5 @@
 #pragma once 
 
+#define TEST_PATH @TEST_PATH@
 #define DigitalSignaturesCreator_VERSION_MAJOR @DigitalSignaturesCreator_VERSION_MAJOR@
 #define DigitalSignaturesCreator_VERSION_MINOR @DigitalSignaturesCreator_VERSION_MINOR@

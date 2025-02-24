@@ -25,10 +25,16 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(OSBitness 64)
 endif()
 
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/dependencies)
+
+
 set(FullDirectory ${CMAKE_SOURCE_DIR}/bin/${CMAKE_SYSTEM_NAME}${OSBitness}/${CMAKE_BUILD_TYPE})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${FullDirectory})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${FullDirectory}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${FullDirectory}/lib")
 
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/dependencies)
+
+
 
 include(CTest)
 

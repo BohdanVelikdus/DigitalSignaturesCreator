@@ -81,6 +81,14 @@ public:
 
     void writeHashIntoFile(const std::string& path, std::vector<unsigned char>& hash);
 
+    std::vector<unsigned char> readFile(const std::string& filename);
+
+    Status digitalSignDocument(const std::string& filename);
+
+    bool hasPasswd() const;
+
+    void writeSignatureIntoFile(const std::string &path, std::vector<unsigned char> &signature);
+
 private:
 
     Status WriteCertToFiles(std::fstream& filePRI, std::fstream& filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>> &&keyPair,Sign certType);

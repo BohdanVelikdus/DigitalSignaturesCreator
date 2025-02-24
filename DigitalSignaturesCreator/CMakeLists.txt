@@ -1,4 +1,5 @@
 
+set(TEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/certificates_test")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DigitalSignaturesCreator.h.in ${CMAKE_BINARY_DIR}/DigitalSignaturesCreator.h)
 
 set(CMAKE_CXX_STANDARD 20)

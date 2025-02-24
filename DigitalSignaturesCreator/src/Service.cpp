@@ -78,6 +78,196 @@ Status Service::verifyIfFile(const std::string& path)
     return Status::FAILURE;
 }
 
+std::vector<unsigned char> Service::readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+    return std::vector<unsigned char>(std::istreambuf_iterator<char>(file), {});
+}
+
+//static int passwordCallback(char* buf, int size, int rwflag, void* userdata) {
+//    const char* password = static_cast<const char*>(userdata);
+//    size_t len = strlen(password);
+//    if (len >= static_cast<size_t>(size)) {
+//        return 0; 
+//    }
+//    memcpy(buf, password, len + 1);
+//    return static_cast<int>(len);
+//}
+
+static int passwordCallback(char* buf, int size, int rwflag, void* userdata) {
+    Service* service = static_cast<Service*>(userdata);
+    int sz = 0;
+    std::string password;
+    if(service->hasPasswd())
+    {
+        // it has a password
+        // need to prompt for password
+        std::cout << "Enter the password:\n";
+        std::cin >> password;
+        if(std::cin.eof())
+            password = "_";
+
+#ifndef _MSC_VER 
+        memcpy(buf, password.data(), password.size());
+#endif
+        sz = password.size();
+    
+    }
+    else
+    {
+        buf = nullptr;
+    }
+    return sz;
+}
+
+Status Service::digitalSignDocument(const std::string &filename)
+{
+    std::filesystem::path path_ = std::filesystem::absolute(filename);
+    const EVP_MD* hashAlgo = nullptr;
+    if(this->m_type == Hash::SHA_256)
+    {
+        hashAlgo = EVP_sha256();
+    }
+    else if(this->m_type == Hash::SHA_512)
+    {
+        hashAlgo = EVP_sha512();
+    }  
+    
+    std::unique_ptr<BIO, std::function<void(BIO*)>> bio(BIO_new_file(std::filesystem::absolute(this->m_pathToPriKey).string().c_str(), "r") , this->customDeleter_BIO);
+    if(bio.get() == nullptr)
+    {
+        std::cout << "Cannot create a bio from a file\n";
+        return Status::FAILURE;
+    }
+
+    std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>> key(nullptr, this->customDeleter_EVP_PKEY);
+
+    EVP_PKEY* k = key.get();    
+    k = PEM_read_bio_PrivateKey(bio.get(), nullptr, passwordCallback, reinterpret_cast<void*>(this));
+
+    bool needPassword = false;
+    if(k == nullptr)
+    {
+        needPassword = true;
+    }
+    else
+    {
+        std::cout << "Got the key!!!\n";
+    }
+    std::string password;
+    do
+    {
+        if(needPassword)
+        {
+            std::cout << "Need a password:\n";
+            std::cin >> password;
+            if(std::cin.eof())
+            {
+                password = "_";
+            }
+            if(password == "_")
+            {
+                return Status::FAILURE;
+            }
+            else
+            {
+                //  means we read password. If password is right, we can extract a key
+                k = PEM_read_bio_PrivateKey(bio.get(), nullptr, passwordCallback, reinterpret_cast<void*>(this));
+                if(k != nullptr)
+                {
+                    std::cout << "Extracted the key successfully\n";
+                    break;
+                }
+                else
+                {
+                    std::cout << "Wrong password\n";
+                }
+            }
+        }
+        else 
+        {
+            break;
+        }
+    }
+    while(true);
+    //so, we get the keys inside a PKEY unique_ptr
+    std::unique_ptr<EVP_MD_CTX, std::function<void(EVP_MD_CTX*)>> ctx(EVP_MD_CTX_new(), this->customDeleter_EVP_MD_CTX);
+    if(ctx.get() == nullptr)
+    {
+        std::cout << "Cannot init a md ctx for hashing\n";
+        return Status::FAILURE;
+    }
+    key.reset(k);
+    if(EVP_DigestSignInit(ctx.get(), nullptr, hashAlgo, nullptr, key.get()) <= 0)
+    {
+        std::cout << "Error init and ctx for hashing with key\n";
+        return Status::FAILURE;
+    }
+    std::ifstream file(path_, std::ios::binary);
+    if(!file)
+    {
+        std::cout << "Cannot open the file\n";
+        return Status::FAILURE;    
+    }
+
+    const size_t bufferSize = 4096;  
+    std::vector<unsigned char> buffer(bufferSize);
+    while (file) {
+        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+        size_t bytesRead = file.gcount();
+        if (bytesRead > 0) {
+            // Update the signing context with the chunk
+            if (EVP_DigestSignUpdate(ctx.get(), buffer.data(), bytesRead) <= 0) {
+                std::cout << "Cannot update dgst ctx\n";
+            }
+        }
+    }
+    size_t signatureLen = 0;
+    if (EVP_DigestSignFinal(ctx.get(), nullptr, &signatureLen) <= 0) {
+        std::cout << "Failed to finalize the signature length\n";
+        return Status::FAILURE;
+    }
+    std::vector<unsigned char> signature(signatureLen);
+    if (EVP_DigestSignFinal(ctx.get(), signature.data(), &signatureLen) <= 0) {
+        std::cout << "Failed to generate the signature";
+        return Status::FAILURE;
+    }
+    // writing a digital signature into the file
+    writeSignatureIntoFile(path_, signature);
+    return Status::FAILURE;
+}
+
+void Service::writeSignatureIntoFile(const std::string &path, std::vector<unsigned char> &signature)
+{
+    std::filesystem::path path_ = std::filesystem::absolute(path);
+    std::filesystem::path pathForCreation = path_.parent_path();
+    std::string fileName = std::string(path_.filename().string()) + ((this->m_sign == Sign::RSA) ? "_rsa.bin" : "_ecdsa.bin");
+    if(pathForCreation.empty())
+    {
+        pathForCreation = path_.root_path();
+    }
+    pathForCreation = pathForCreation / fileName;
+    std::ofstream signatureFileStream(pathForCreation, std::ios::binary);
+    if (!signatureFileStream) {
+        std::cout << "Cannot write a file\n";
+        return;
+    }
+    signatureFileStream.write(reinterpret_cast<const char*>(signature.data()), signature.size());
+    if (!signatureFileStream) {
+        std::cout << "Cannot write a file2\n";
+    }
+}
+
+
+bool Service::hasPasswd() const
+{
+    if(this->m_passwd == Passwd::YES)
+        return true;
+    return false;
+}
+
 std::optional<std::vector<unsigned char>> Service::getHashOfDocumentByPath(const std::string& path)
 {
     std::ifstream file(path, std::ios::binary);
@@ -131,6 +321,7 @@ std::optional<std::vector<unsigned char>> Service::getHashOfDocumentByPath(const
         return hash;
     }
 }
+
 
 void Service::writeHashIntoFile(const std::string &path, std::vector<unsigned char> &hash)
 {
@@ -366,9 +557,6 @@ Status Service::WriteCertToFiles(std::fstream &filePRI, std::fstream &filePUB, s
 
     // Free allocated memory
     OPENSSL_free(publicKeyData);
-    
-    // If all is ok, return success
-    //return Status::SUCCESS;
 
     return Status::SUCCESS;
 }
