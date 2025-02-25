@@ -432,7 +432,7 @@ static int passwordCallback(char* buf, int size, int rwflag, void* userdata) {
 #ifndef _MSC_VER 
     memcpy(buf, password.data(), password.size());
 #else
-
+    memcpy_s(buf, password.size(), password.data(), password.size());
 #endif
     return len;
 }
@@ -635,7 +635,7 @@ Status CertificateManager::digitalSignDocument(const std::string &filename)
         return Status::FAILURE;
     }
     // writing a digital signature into the file
-    writeSignatureIntoFile(path_, signature);
+    writeSignatureIntoFile(path_.string(), signature);
     return Status::SUCCESS;
 }
 
