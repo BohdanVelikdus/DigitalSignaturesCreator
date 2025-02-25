@@ -4,6 +4,9 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <iostream>
+#include <fstream>
+#include <filesystem>
 
 #include "openssl/pem.h"
 #include "openssl/rsa.h"
@@ -46,76 +49,59 @@ enum class Passwd
     NO
 };
 
-class Service
+
+inline void printFinalMessage()
 {
-public:
-
-    Service();
-
-    std::string getHashType();
-
-    Status setHashType(std::string nameOfType);
-
-    Status verifyIfFolder(std::string path);
-
-    void setState(CertState state);
-
-    void clearAllPaths();
-
-    void setPathToNewCertFolder(std::string path);
-
-    void setSign(Sign sign);
-
-    void setPasswd(Passwd status);
-
-    Status CreateCert();
-
-    // check if the ctrl+c or ctrl+d is pressed
-    bool signalFlag = false;
-
-    bool getInitFlagPriKey();
-
-    bool getInitFlagPubKey();
-
-    Status verifyIfFile(const std::string& path);
-
-    std::optional<std::vector<unsigned char>> getHashOfDocumentByPath(const std::string& path);
-
-    void writeHashIntoFile(const std::string& path, std::vector<unsigned char>& hash);
-
-    std::vector<unsigned char> readFile(const std::string& filename);
-
-    Status digitalSignDocument(const std::string& filename);
-
-    bool hasPasswd() const;
-
-    void writeSignatureIntoFile(const std::string &path, std::vector<unsigned char> &signature);
-
-private:
-
-    Status WriteCertToFiles(std::fstream& filePRI, std::fstream& filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>> &&keyPair,Sign certType);
-
-    Status createRSACert(std::fstream& filePRI, std::fstream& filePUB);
-
-    Status createECDDSACert(std::fstream& filePRI, std::fstream& filePUB);
-
-    Hash m_type;
-    Sign m_sign;
-    Passwd m_passwd;
-
-    bool flagInitPrivate = false;
-    bool flagInitPublic = false;
-
-    std::string m_pathToNewCertFolder = "";
-    std::string m_pathToPriKey = "";
-    std::string m_pathToPubKey = "";
-
-    std::function<void(EVP_PKEY*)> customDeleter_EVP_PKEY = [](EVP_PKEY *ptr){if(ptr){EVP_PKEY_free(ptr);}};
-    std::function<void(EVP_PKEY_CTX*)> customDeleter_EVP_PKEY_CTX = [](EVP_PKEY_CTX *ptr){if(ptr){EVP_PKEY_CTX_free(ptr);}};
-    std::function<void(OSSL_ENCODER_CTX*)> customDeleter_OSSL_ENCODER_CTX = [](OSSL_ENCODER_CTX *ptr){if(ptr){OSSL_ENCODER_CTX_free(ptr);}};
-    std::function<void(BIO*)> customDeleter_BIO = [](BIO* ptr){if(ptr){BIO_free(ptr);}};
-    std::function<void(unsigned char*)> customDeleter_unsigned_char = [](unsigned char* ptr){if(ptr){OPENSSL_free(ptr);}};
-    std::function<void(EVP_MD_CTX*)> customDeleter_EVP_MD_CTX = [](EVP_MD_CTX *ptr){if(ptr){EVP_MD_CTX_free(ptr);}};
+    std::cout << "\nThank you, have a nice day\n";
+}
 
 
-};
+inline std::string getInputFromConsoleNum()
+{
+    std::string input = "0";
+    if(!std::cin.eof())
+    {
+        std::cin >> input;
+    }
+    return input;
+}
+
+inline std::string getInputFromConsoleString()
+{
+    std::string input;
+    std::cin >> input;
+    if(std::cin.eof())
+        input = "_";
+    return input;
+}
+
+inline Status verifyIfFolder(std::string path)
+{
+    std::filesystem::path path_ = std::filesystem::absolute(path);
+    if(std::filesystem::exists(path_) && std::filesystem::is_directory(path_))
+    {
+        return Status::SUCCESS;
+    }
+    else
+    {
+        return Status::FAILURE;
+    }
+}
+
+inline Status verifyIfFile(const std::string &path)
+{
+    std::filesystem::path path_fs = std::filesystem::absolute(path);
+    if(std::filesystem::exists(path_fs) && std::filesystem::is_regular_file(path_fs))
+    {
+        return Status::SUCCESS;
+    }
+    return Status::FAILURE;
+}
+
+inline std::vector<unsigned char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+    return std::vector<unsigned char>(std::istreambuf_iterator<char>(file), {});
+}

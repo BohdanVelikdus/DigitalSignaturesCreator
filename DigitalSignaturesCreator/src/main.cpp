@@ -21,11 +21,13 @@ using namespace std::literals;
 #define CYAN    "\033[36m"
 #define YELLOW  "\033[33m"
 
+bool status_running = true;
+
 std::shared_ptr<Program> pr;
 
 void exitGracefully(int)
 {
-    pr->setStatus(false);
+    status_running = false;
     std::cin.rdbuf()->pubsync(); 
     std::cin.setstate(std::ios::eofbit);
     fclose(stdin);
@@ -48,9 +50,6 @@ int main()
     if (OpenSSL_add_all_algorithms() == 0) {
         std::cout << "Error: OpenSSL failed to load algorithms.\n";
     }
-
-    pr->configureHashPublic();
-
     pr->start();
 
     return 0;

@@ -8,6 +8,8 @@
 #include <openssl/err.h>
 
 #include "Service.h"
+#include "HashManager.h"
+#include "CertificateManager.h"
 
 class Program
 {
@@ -16,41 +18,12 @@ public:
 
     ~Program();
 
-    void start();
-
-    void setStatus(bool status);
-
-    std::string getInputFromConsoleNum();
-
-    std::string getInputFromConsoleString();
-    
-    void configurePrivateKey();
-
-    Status createNewCertificatePublicAndPrivateKey();
-
-
-
     Status configureHash();
 
-    Status configureCert();
-
-
-    Status chooseAlgoSigning();
-
-    Status chooseIfEncrypted();
-
-
-
-
-    void configureHashPublic();
-
-    void configureCertPublic();
-
-    void printFinalMessage();
+    void start();
 
 private:
-    bool m_status = true;
-    std::unique_ptr<Service> m_service;
+    std::unique_ptr<HashManager> m_hashManager;
+    std::unique_ptr<CertificateManager> m_certificateManager;
 };
-
 

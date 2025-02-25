@@ -3,15 +3,22 @@
 
 #include <string>
 #include <algorithm>
+#include <functional>
 
-// desrtuctor, constructor, etc, run 
-#pragma region Class importnat func
+extern bool status_running; 
 
 Program::Program()
 {
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
-    m_service = std::make_unique<Service>();
+    m_hashManager = std::make_unique<HashManager>();
+    m_certificateManager = std::make_unique<CertificateManager>();
+    CertificateManager* forCallback = m_certificateManager.get();
+    m_hashManager->setCallbackChangingHash(
+        [forCallback](Hash newHash)
+        {
+            forCallback->setAlgorithmChange(newHash);
+        });
 }
 
 Program::~Program()
@@ -22,9 +29,10 @@ Program::~Program()
 
 void Program::start()
 {
+    m_hashManager->configureHash();
     std::string input;
     int dec = 1;
-    while(m_status)
+    while(status_running)
     {
         std::cout << "Enter the command from the list to start working with program:\n";
         std::cout << "\t1 - sign a document using ecdsa or rsa\n";
@@ -34,6 +42,8 @@ void Program::start()
         std::cout << "\t0 - exit the program\n";
         Status tempStatus = Status::FAILURE;
         std::string pathToFileForHash = "";
+        std::string pathToFileForVeryfing = "";
+        std::string pathToFileDigitalSignature = "";
         input = getInputFromConsoleNum();
         try
         {
@@ -51,19 +61,18 @@ void Program::start()
         {
         case 1:
             // sign a document using a certificate, mentioned in a file
-            do
+            while(!m_certificateManager->getInitFlagPriKey())
             {
-                std::cout << "Need a new certificate\n";
-                //this->configureCertPublic();
-                this->configurePrivateKey();
-            }while(!m_service->getInitFlagPriKey());
+                std::cout << "Need a new private key\n";
+                m_certificateManager->configureCertificatePrivateKey();
+            }
             do
             {
                 std::cout << "\nEnter the path to the file:\n";
                 input = getInputFromConsoleString();
                 if(input == "_")
                 {
-                    m_status = false;
+                    status_running = false;
                     return;
                 }
                 if(input == "#")
@@ -72,59 +81,74 @@ void Program::start()
                 }
                 else
                 {
-                    tempStatus = m_service->verifyIfFile(input);
+                    tempStatus = verifyIfFile(input);
                     if(tempStatus == Status::FAILURE)
                     {
                         std::cout <<  "Wrong file\n";
                         continue;
                     }
-                    tempStatus = m_service->digitalSignDocument(input);  
+                    tempStatus = m_certificateManager->digitalSignDocument(input);  
                 }
             }while(tempStatus == Status::FAILURE);
             std::cout << "Successfully create a new digital signature\n";
             break;
         case 2:
             // verifying a signature 
-
+            // verifying a signature using a public key, mentioned in a file
+            while(!m_certificateManager->getInitFlagPubKey())
+            {
+                std::cout << "Need a new public key\n";
+                m_certificateManager->configureCertificatePublicKey();
+            }
             do
             {
                 std::cout << "\nEnter the path to the file:\n";
-                input = getInputFromConsoleString();
-                if(input == "_")
+                pathToFileForVeryfing = getInputFromConsoleString();
+                if(pathToFileForVeryfing == "_")
                 {
-                    m_status = false;
+                    status_running = false;
                     return;
                 }
-                if(input == "#")
+                if(pathToFileForVeryfing == "#")
                 {
                     break;
-                }
-                else
+                }             
+                tempStatus = verifyIfFile(pathToFileForVeryfing);
+                if(tempStatus == Status::FAILURE)
                 {
-                    tempStatus = m_service->verifyIfFile(input);
-                    if(tempStatus == Status::FAILURE)
-                    {
-                        std::cout <<  "Wrong file\n";
-                        continue;
-                    }
-                    if(!m_service->getInitFlagPubKey())
-                    {
-                        std::cout << "Need a new certificate\n";
-                        this->configureCertPublic();
-                    }
-                    tempStatus = m_service->digitalSignDocument(input);  
+                    std::cout <<  "Wrong file\n";
+                    continue;
                 }
-            }while(tempStatus == Status::FAILURE);
+                std::cout << "\nEnter the path to the digital signature of file:\n";
+                pathToFileDigitalSignature = getInputFromConsoleString();
+                if(pathToFileDigitalSignature == "_")
+                {
+                    status_running = false;
+                    return;
+                }
+                if(pathToFileDigitalSignature == "#")
+                {
+                    break;
+                }             
+                tempStatus = verifyIfFile(pathToFileDigitalSignature);
+                if(tempStatus == Status::FAILURE)
+                {
+                    std::cout <<  "Wrong file\n";
+                    continue;
+                }
+                m_certificateManager->verifyDigitalSign(pathToFileForVeryfing, pathToFileDigitalSignature);  
+            }
+            while(tempStatus == Status::FAILURE);
             break;
         case 3:
-            std::cout << "The algo for hashing(to change it, select 4 in start menu)(# to return to the menu): " << m_service->getHashType(); 
+            std::cout << "The algo for hashing(to change it, select 4 in start menu)(# to return to the menu): " << m_hashManager->getHashType(); 
             do
             {
                 std::cout << "\nEnter the path to the file:\n";
                 input = getInputFromConsoleString();
                 if(input == "_")
                 {
-                    m_status = false;
+                    status_running = false;
                     return;
                 }
                 if(input == "#")
@@ -134,12 +158,12 @@ void Program::start()
                 else
                 {
                     // we get the path to the file, so have to verify a path
-                    tempStatus = m_service->verifyIfFile(input);
+                    tempStatus = verifyIfFile(input);
                     if(tempStatus ==  Status::SUCCESS)
                     {
                         pathToFileForHash = input;
                         // the file exists, so create a hash of it
-                        std::optional<std::vector<unsigned char>> hash = m_service->getHashOfDocumentByPath(input);
+                        std::optional<std::vector<unsigned char>> hash = m_hashManager->getHashOfDocumentByPath(input);
                         if(hash.has_value())
                         {
                             tempStatus = Status::SUCCESS;
@@ -148,7 +172,6 @@ void Program::start()
                                 std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
                             }
                             std::cout << std::endl;
-                            
                             std::cout << "Do you want to write it into file(YES/NO):\n";
                             input = getInputFromConsoleString();
                             if(input == "_")
@@ -161,7 +184,7 @@ void Program::start()
                                 if(input == "yes")
                                 {
                                     // have to save into a file
-                                    m_service->writeHashIntoFile(pathToFileForHash, hash.value());
+                                    m_hashManager->writeHashIntoFile(pathToFileForHash, hash.value());
                                 }                                
                             }
                         }
@@ -175,17 +198,42 @@ void Program::start()
                         std::cout << "The file is not correct, enter other path for file\n";
                     }
                 }
-            }while(tempStatus == Status::FAILURE);
+            }
+            while(tempStatus == Status::FAILURE);
             break;
         case 4:
             // manual set of the private key and public key
             // have to separate a definitionn of all of them
-
-
+            do
+            {
+                std::cout << "You want to configure (enter) a (PUBLIC) or PRIVATE:\n";
+                input = getInputFromConsoleString();
+                std::transform(input.begin(), input.end(), input.begin(), [](char c ){return std::tolower(c);});
+                if(input == "public")
+                {
+                    m_certificateManager->configureCertificatePublicKey();
+                    break;
+                }
+                else if(input == "private")
+                {
+                    m_certificateManager->configureCertificatePrivateKey();
+                    break;
+                }
+                else if(input == "_")
+                {
+                    printFinalMessage();
+                    status_running = false;
+                    return;
+                }
+                else
+                {
+                    std::cout << "Enter other message\n";
+                }
+            }while(true);
             break;
         case 0:
             printFinalMessage();
-            m_status = false;
+            status_running = false;
             continue;
             break;
         default:
@@ -196,352 +244,6 @@ void Program::start()
 
     }
 }
-
-void Program::setStatus(bool status)
-{
-    this->m_status = status;
-}
-
-
-#pragma endregion
-
-
-// Hashing routines
-#pragma region Hashing
-
-void Program::configureHashPublic()
-{
-    Status status = configureHash();
-    if(!m_status || status == Status::FAILURE)
-        return;
-}
-
-Status Program::configureHash()
-{
-    Status status = Status::FAILURE;
-    std::string input;
-    do
-    {
-        std::cout << "Enter hash algo: SHA-256 or SHA-512:\n";
-        input = getInputFromConsoleString();
-        std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c){return std::tolower(c);});
-        if(input != "_")
-        {
-            status = m_service->setHashType(input);
-            if(status== Status::FAILURE)
-                std::cout << "Wrong name of hash algo\n";
-        }
-        else
-        {
-            printFinalMessage();
-            m_status = false;
-            break;
-        }
-    }
-    while(status == Status::FAILURE && m_status);
-    return status;
-}
-
-#pragma endregion
-
-
-#pragma region Utils
-
-std::string Program::getInputFromConsoleNum()
-{
-    std::string input = "0";
-    if(!std::cin.eof() && this->m_status)
-    {
-        std::cin >> input;
-    }
-    return input;
-}
-
-std::string Program::getInputFromConsoleString()
-{
-    std::string input;
-    std::cin >> input;
-    if(std::cin.eof())
-        input = "_";
-    return input;
-}
-
-void Program::printFinalMessage()
-{
-    std::cout << "\nThank you, have a nice day\n";
-}
-
-#pragma endregion
-
-
-#pragma region creating Certificate
-
-void Program::configurePrivateKey()
-{
-    Status status = Status::FAILURE;
-    std::string inputFromConsole;
-    do
-    {   
-        std::cout << "This program only supports signing using ECDSA or RSA.\n" 
-                  << "So you must choose:\n"
-                  << "\tNEW to create a new pri and public key in pecified path\n"
-                  << "\tMANUAL to manual write the path to private key\n";
-        inputFromConsole = getInputFromConsoleString();
-        std::transform(inputFromConsole.begin(), inputFromConsole.end(), inputFromConsole.begin(), [](unsigned char c){return std::tolower(c);});
-        if(inputFromConsole == "new")
-        {
-            // now call the function for creating a new key-pair
-            status = createNewCertificatePublicAndPrivateKey();
-            if(status == Status::FAILURE && m_status)
-            {
-                std::cout << "Unexpected error happend, cannot create a certificate with specified options, try other options\n";
-            }
-            else 
-            {
-                std::cout << "Certificate created!!!\n";
-            }
-        }
-        else if(inputFromConsole == "manual")
-        {
-
-        }
-        else if(inputFromConsole == "#")
-        {
-            continue;
-        }
-        else if(inputFromConsole == "_")
-        {
-            m_status = false;
-            printFinalMessage();
-            return;
-        }
-        else
-        {
-            std::cout << "Wrong option.....\n"; 
-        }
-
-    } while (status == Status::FAILURE && m_status);
-    return;
-}
-
-Status Program::createNewCertificatePublicAndPrivateKey()
-{
-    Status status = Status::FAILURE;
-    std::string input;
-    while(status == Status::FAILURE && m_status)
-    {
-        std::cout << "Enter the path to place where cert will be stored\n";
-        input = getInputFromConsoleString();
-        if(input == "#")
-        {
-            return Status::FAILURE;
-        }
-        if(input == "_")
-        {
-            printFinalMessage();
-            m_status = false;
-            return Status::FAILURE;
-        }
-        else
-        {
-            // here we verify the path
-            status = m_service->verifyIfFolder(input);
-            if(status == Status::FAILURE)
-            {
-                // means not folder
-                std::cout << "The entered path is not a folder\n";
-            }
-            else 
-            {
-                std::cout << "Path OK\n";
-                m_service->setPathToNewCertFolder(input);
-                status = chooseAlgoSigning();
-                if(status == Status::FAILURE)
-                {
-                    // measn we want to change the path to the cert
-                    continue;
-                }
-                else
-                {
-                    return Status::SUCCESS;
-                }
-            }
-        }
-    }
-    return Status::FAILURE;
-}
-
-Status Program::chooseIfEncrypted()
-{
-    Status status = Status::FAILURE;
-    std::string inputFromConsole;
-    while(status == Status::FAILURE && m_status)
-    {
-        std::cout << "Choose if cert must be encrypted: YES/No\n";
-        inputFromConsole = getInputFromConsoleString();
-        std::transform(inputFromConsole.begin(), inputFromConsole.end(), inputFromConsole.begin(), [](unsigned char c){return std::tolower(c);});
-        if(inputFromConsole == "#")
-        {
-            return Status::FAILURE;
-        }
-        else if(inputFromConsole == "_")
-        {
-            printFinalMessage();
-            m_status = false;
-            return Status::FAILURE;
-        }
-        else
-        {
-            bool flag = false;
-            // means have to parse yes or no
-            if(inputFromConsole == "yes")
-            {
-                flag = true;
-                m_service->setPasswd(Passwd::YES);
-            }
-            else if(inputFromConsole == "no")
-            {
-                flag = true;
-                m_service->setPasswd(Passwd::NO);
-            }
-            if(!flag)
-            {
-                continue;
-            }
-            else 
-            {
-                std::cout << "ENC ok\n";
-                status = m_service->CreateCert();
-                if(m_service->signalFlag)
-                {
-                    this->m_status = false;
-                    printFinalMessage();
-                }
-                return status;
-            }
-        }
-    }
-    return Status::FAILURE;
-}
-
-void Program::configureCertPublic()
-{
-    Status status = configureCert();
-    if(!m_status || status == Status::FAILURE)
-        return;
-}
-
-Status Program::chooseAlgoSigning()
-{
-    Status status = Status::FAILURE;
-    std::string inputFromConsole;
-    while(status == Status::FAILURE && m_status)
-    {
-        std::cout << "Now you have to choose if the algo must be ECDSA or RSA\n";
-        inputFromConsole = getInputFromConsoleString();
-        std::transform(inputFromConsole.begin(), inputFromConsole.end(), inputFromConsole.begin(), [](unsigned char c){return std::tolower(c);});
-        if(inputFromConsole == "#")
-        {
-            return Status::FAILURE;
-        }
-        else if(inputFromConsole == "_")
-        {
-            printFinalMessage();
-            m_status = false;
-            return Status::FAILURE;
-        }
-        else
-        {
-            bool fl = false;
-            if(inputFromConsole == "ecdsa")
-            {
-                fl = true;
-                m_service->setSign(Sign::ECDSA);
-            }
-            else if(inputFromConsole == "rsa")
-            {
-                fl = true;
-                m_service->setSign(Sign::RSA);
-            }
-
-            if(!fl)
-            {
-                std::cout << "The algo you entered is not support by program, try another\n";
-            }
-            else
-            {
-                // means the algo is good 
-                // now have to prompt if the algo must be encrypted
-                status = chooseIfEncrypted();
-                if(status == Status::FAILURE)
-                {
-                    // means we only want to change the algo
-                    continue;
-                }
-                else
-                {
-                    return Status::SUCCESS;
-                }
-            }
-
-        }
-    }
-    return Status::FAILURE;
-}
-
-Status Program::configureCert()
-{
-    Status status = Status::FAILURE;
-    std::string inputFromConsole;
-    do
-    {   
-        std::cout << "This program only supports signing using ECDSA or RSA.\n" 
-                  << "So you must choose:\n"
-                  << "\tNEW to create a new pri and public key in pecified path\n"
-                  << "\tMANUAL to manual write the path to private and public key\n";
-        inputFromConsole = getInputFromConsoleString();
-        std::transform(inputFromConsole.begin(), inputFromConsole.end(), inputFromConsole.begin(), [](unsigned char c){return std::tolower(c);});
-        if(inputFromConsole == "new")
-        {
-            // now call the function
-            m_service->setState(CertState::NEW);
-            status = createNewCertificatePublicAndPrivateKey();
-            if(status == Status::FAILURE && m_status)
-            {
-                std::cout << "Unexpected error happend, cannot create a certificate with specified options, try other options\n";
-            }
-            else 
-            {
-                std::cout << "Certificate created!!!\n";
-            }
-        }
-        else if(inputFromConsole == "new")
-        {
-
-        }
-        else if(inputFromConsole == "manual")
-        {
-
-        }
-        else if(inputFromConsole == "#")
-        {
-            continue;
-        }
-        else if(inputFromConsole == "_")
-        {
-            m_status = false;
-            printFinalMessage();
-            return Status::FAILURE;
-        }
-        else
-        {
-            std::cout << "Wrong option.....\n"; 
-        }
-
-    } while (status == Status::FAILURE && m_status);
-    return status;
-}
-
 
 #pragma endregion
 
