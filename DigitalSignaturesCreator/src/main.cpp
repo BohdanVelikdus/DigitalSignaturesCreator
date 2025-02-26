@@ -7,10 +7,6 @@
 #include <signal.h>
 #include <stdlib.h>
 
-
-#include "openssl/evp.h"
-#include "openssl/rsa.h"
-
 using namespace std::literals;
 
 #include "Program.h"
@@ -47,9 +43,6 @@ int main()
     std::cout << "DigitalSignaturesCreator. Vesrion: " << DigitalSignaturesCreator_VERSION_MAJOR << "." << DigitalSignaturesCreator_VERSION_MINOR << "\n";
     std::cout << "=====================\n";
     pr = std::make_shared<Program>();
-    if (OpenSSL_add_all_algorithms() == 0) {
-        std::cout << "Error: OpenSSL failed to load algorithms.\n";
-    }
     pr->start();
 
     return 0;
