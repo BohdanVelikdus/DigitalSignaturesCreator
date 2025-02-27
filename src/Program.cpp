@@ -5,16 +5,13 @@
 #include <algorithm>
 #include <functional>
 
-extern bool status_running; 
-
-Program::Program()
+Program::Program() : m_hashManager((new HashManager(this->status_running))),
+    m_certificateManager(new CertificateManager(this->status_running))
 {
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
-    m_hashManager = std::make_unique<HashManager>();
-    m_certificateManager = std::make_unique<CertificateManager>();
-    CertificateManager* forCallback = m_certificateManager.get();
-    m_hashManager->setCallbackChangingHash(
+    CertificateManager* forCallback = m_certificateManager.value().get();
+    m_hashManager.value()->setCallbackChangingHash(
         [forCallback](Hash newHash)
         {
             forCallback->setAlgorithmChange(newHash);
@@ -29,9 +26,10 @@ Program::~Program()
 
 void Program::start()
 {
-    m_hashManager->configureHash();
-    std::string input;
-    int dec = 1;
+    m_hashManager.value()->configureHash();
+    std::optional<std::string> input;
+    std::optional<int> dec;
+    std::string in; 
     while(status_running)
     {
         std::cout << "Enter the command from the list to start working with program:\n";
@@ -41,74 +39,88 @@ void Program::start()
         std::cout << "\t4 - set the parameters\n";
         std::cout << "\t0 - exit the program\n";
         Status tempStatus = Status::FAILURE;
+        std::pair<Status, std::vector<unsigned char>> digitalSignStatus;
         std::string pathToFileForHash = "";
         std::string pathToFileForVeryfing = "";
         std::string pathToFileDigitalSignature = "";
-        input = getInputFromConsoleNum();
-        try
+        std::string hashString = "";
+        dec = getInputFromConsoleNum();
+        if(!dec.has_value())
         {
-            dec = std::stoi(input);
-            if(std::cin.eof())
-                dec = 0;
+            printFinalMessage();
+            return;
         }
-        catch(...)
-        {
-            std::cout << "Error in entered num, try again\n";
-            std::cin.clear();
-            continue; 
-        }
-        switch (dec)
+        switch (dec.value())
         {
         case 1:
             // sign a document using a certificate, mentioned in a file
-            while(!m_certificateManager->getInitFlagPriKey())
+            while(!m_certificateManager.value()->getInitFlagPriKey())
             {
                 std::cout << "Need a new private key\n";
-                m_certificateManager->configureCertificatePrivateKey();
+                m_certificateManager.value()->configureCertificatePrivateKey();
             }
-            do
+            while(tempStatus == Status::FAILURE && this->status_running)
             {
                 std::cout << "\nEnter the path to the file:\n";
                 input = getInputFromConsoleString();
-                if(input == "_")
+                if(!input.has_value())
                 {
+                    printFinalMessage();
                     status_running = false;
                     return;
                 }
-                if(input == "#")
+                else
+                {
+                    in = input.value();
+                }
+
+                if(in == "#")
                 {
                     break;
                 }
                 else
                 {
-                    tempStatus = verifyIfFile(input);
+                    tempStatus = verifyIfFile(in);
                     if(tempStatus == Status::FAILURE)
                     {
                         std::cout <<  "Wrong file\n";
                         continue;
                     }
-                    tempStatus = m_certificateManager->digitalSignDocument(input);  
+                    digitalSignStatus = m_certificateManager.value()->digitalSignDocument(in);  
+                    if(digitalSignStatus.first == Status::SUCCESS)
+                    {
+                        std::cout << "Successfully create a new digital signature\n";
+                    }
+                    else 
+                    {
+                        std::cout << "The signature didn\'t created\n";
+                    }
                 }
-            }while(tempStatus == Status::FAILURE);
-            std::cout << "Successfully create a new digital signature\n";
+            }
             break;
         case 2:
             // verifying a signature 
             // verifying a signature using a public key, mentioned in a file
-            while(!m_certificateManager->getInitFlagPubKey())
+            while(!m_certificateManager.value()->getInitFlagPubKey())
             {
                 std::cout << "Need a new public key\n";
-                m_certificateManager->configureCertificatePublicKey();
+                m_certificateManager.value()->configureCertificatePublicKey();
             }
             do
             {
                 std::cout << "\nEnter the path to the file:\n";
-                pathToFileForVeryfing = getInputFromConsoleString();
-                if(pathToFileForVeryfing == "_")
+                input = getInputFromConsoleString();
+                if(!input.has_value())
                 {
-                    status_running = false;
+                    printFinalMessage();
+                    this->status_running = false;
                     return;
                 }
+                else
+                {
+                    pathToFileForVeryfing = input.value();
+                }
+
                 if(pathToFileForVeryfing == "#")
                 {
                     break;
@@ -120,12 +132,18 @@ void Program::start()
                     continue;
                 }
                 std::cout << "\nEnter the path to the digital signature of file:\n";
-                pathToFileDigitalSignature = getInputFromConsoleString();
-                if(pathToFileDigitalSignature == "_")
+                input = getInputFromConsoleString();
+                if(!input.has_value())
                 {
-                    status_running = false;
+                    printFinalMessage();
+                    this->status_running = false;
                     return;
                 }
+                else
+                {
+                    pathToFileDigitalSignature = input.value();
+                }
+                
                 if(pathToFileDigitalSignature == "#")
                 {
                     break;
@@ -136,21 +154,27 @@ void Program::start()
                     std::cout <<  "Wrong file\n";
                     continue;
                 }
-                m_certificateManager->verifyDigitalSign(pathToFileForVeryfing, pathToFileDigitalSignature);  
+                m_certificateManager.value()->verifyDigitalSign(pathToFileForVeryfing, pathToFileDigitalSignature);  
             }
             while(tempStatus == Status::FAILURE);
             break;
         case 3:
-            std::cout << "The algo for hashing(to change it, select 4 in start menu)(# to return to the menu): " << m_hashManager->getHashType(); 
+            std::cout << "The algo for hashing(to change it, select 4 in start menu)(# to return to the menu): " << m_hashManager.value()->getHashType(); 
             do
             {
                 std::cout << "\nEnter the path to the file:\n";
                 input = getInputFromConsoleString();
-                if(input == "_")
+                if(!input.has_value())
                 {
-                    status_running = false;
+                    printFinalMessage();
+                    this->status_running = false;
                     return;
+                }   
+                else
+                {
+                    pathToFileForHash = input.value();
                 }
+
                 if(input == "#")
                 {
                     break;
@@ -158,12 +182,11 @@ void Program::start()
                 else
                 {
                     // we get the path to the file, so have to verify a path
-                    tempStatus = verifyIfFile(input);
+                    tempStatus = verifyIfFile(pathToFileForHash);
                     if(tempStatus ==  Status::SUCCESS)
                     {
-                        pathToFileForHash = input;
                         // the file exists, so create a hash of it
-                        std::optional<std::vector<unsigned char>> hash = m_hashManager->getHashOfDocumentByPath(input);
+                        std::optional<std::vector<unsigned char>> hash = m_hashManager.value()->getHashOfDocumentByPath(pathToFileForHash);
                         if(hash.has_value())
                         {
                             tempStatus = Status::SUCCESS;
@@ -174,18 +197,21 @@ void Program::start()
                             std::cout << std::endl;
                             std::cout << "Do you want to write it into file(YES/NO):\n";
                             input = getInputFromConsoleString();
-                            if(input == "_")
+                            if(!input.has_value())
                             {
+                                printFinalMessage();
+                                this->status_running = false;
                                 return;
                             }
                             else
                             {
-                                std::transform(input.begin(), input.end(), input.begin(), [](auto c){return std::tolower(c);});
-                                if(input == "yes")
-                                {
-                                    // have to save into a file
-                                    m_hashManager->writeHashIntoFile(pathToFileForHash, hash.value());
-                                }                                
+                                hashString = input.value();
+                            }
+                            std::transform(hashString.begin(), hashString.end(), hashString.begin(), [](unsigned char c){return std::tolower(c);});
+                            if(hashString == "yes")
+                            {
+                                // writing to a file
+                                m_hashManager.value()->writeHashIntoFile(pathToFileForHash, hash.value());
                             }
                         }
                         else
@@ -208,22 +234,26 @@ void Program::start()
             {
                 std::cout << "You want to configure (enter) a (PUBLIC) or PRIVATE:\n";
                 input = getInputFromConsoleString();
-                std::transform(input.begin(), input.end(), input.begin(), [](char c ){return std::tolower(c);});
+                if(!input.has_value())
+                {
+                    printFinalMessage();
+                    this->status_running = false;
+                    return;
+                }
+                else
+                {
+                    hashString = input.value();
+                }
+                std::transform(hashString.begin(), hashString.end(), hashString.begin(), [](char c ){return std::tolower(c);});
                 if(input == "public")
                 {
-                    m_certificateManager->configureCertificatePublicKey();
+                    m_certificateManager.value()->configureCertificatePublicKey();
                     break;
                 }
                 else if(input == "private")
                 {
-                    m_certificateManager->configureCertificatePrivateKey();
+                    m_certificateManager.value()->configureCertificatePrivateKey();
                     break;
-                }
-                else if(input == "_")
-                {
-                    printFinalMessage();
-                    status_running = false;
-                    return;
                 }
                 else
                 {

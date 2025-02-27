@@ -8,6 +8,11 @@
 
 #include "Service.h"
 
+HashManager::HashManager(bool &status) : status_running(status)
+{
+    this->m_algorithm = Hash::SHA_256;
+}
+
 void HashManager::setCallbackChangingHash(std::function<void(Hash)> callback)
 {
     this->m_callbackChangeHash = callback;
@@ -123,13 +128,19 @@ Status HashManager::setHashType(std::string nameOfType)
     if(nameOfType == "sha_256" || nameOfType == "sha-256")
     {
         m_algorithm = Hash::SHA_256;
-        this->m_callbackChangeHash(Hash::SHA_256);
+        if(this->m_callbackChangeHash)
+        {
+            this->m_callbackChangeHash(Hash::SHA_256);
+        }
         return Status::SUCCESS;
     }
     else if(nameOfType == "sha_512" || nameOfType == "sha-512")
     {
         m_algorithm = Hash::SHA_512;
-        this->m_callbackChangeHash(Hash::SHA_512);
+        if(this->m_callbackChangeHash)
+        {
+            this->m_callbackChangeHash(Hash::SHA_512);
+        }
         return Status::SUCCESS;
     }
     else
@@ -141,11 +152,23 @@ Status HashManager::setHashType(std::string nameOfType)
 Status HashManager::configureHash()
 {
     Status status = Status::FAILURE;
+    std::optional<std::string> inputConsole;
     std::string input;
     do
     {
         std::cout << "Enter hash algo: SHA-256 or SHA-512:\n";
-        input = getInputFromConsoleString();
+        inputConsole = getInputFromConsoleString();
+        if(!inputConsole.has_value())
+        {
+            printFinalMessage();
+            this->status_running = false;
+            return Status::FAILURE;
+        }
+        else
+        {
+            input = inputConsole.value();
+        }
+
         std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c){return std::tolower(c);});
         if(input != "_")
         {

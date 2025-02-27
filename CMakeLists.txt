@@ -3,6 +3,17 @@ cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# for output directory
+set(OSBitness 32)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(OSBitness 64)
+endif()
+#directory output 
+set(FullDirectory ${CMAKE_CURRENT_SOURCE_DIR}/bin/${CMAKE_SYSTEM_NAME}${OSBitness}/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${FullDirectory})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${FullDirectory}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${FullDirectory}/lib")
+
 if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/dependencies/conan_toolchain.cmake")
     include("${CMAKE_CURRENT_BINARY_DIR}/conan_toolchain.cmake")
     message(STATUS "Use toolchain file")
@@ -10,6 +21,7 @@ endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in Debug mode")
+    add_compile_definitions(DEBUG)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     message(STATUS "Building in Release mode")
 else()
@@ -26,21 +38,6 @@ set(projectVersion "${majorVersion}.${minorVersionStr}")
 # Use Conan toolchain if available
 set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies)
-
-# for output directory
-set(OSBitness 32)
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(OSBitness 64)
-endif()
-
-message(STATUS "Conan OS: ${CONAN_SETTINGS_OS}")
-message(STATUS "Conan Arch: ${CONAN_SETTINGS_ARCH}")
-
-#directory output 
-set(FullDirectory ${CMAKE_CURRENT_SOURCE_DIR}/bin/${CMAKE_SYSTEM_NAME}${OSBitness}/${CMAKE_BUILD_TYPE})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${FullDirectory})
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${FullDirectory}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${FullDirectory}/lib")
 
 # enabling Testing routines 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external)
@@ -112,6 +109,7 @@ if(BUILD_TESTING)
     
     target_include_directories(testing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_BINARY_DIR}
     )
     target_link_libraries(testing PRIVATE 
         GTest::gtest_main

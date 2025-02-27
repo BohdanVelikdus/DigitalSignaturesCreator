@@ -5,22 +5,22 @@ import platform
 def run_conan(os_type_str):
     try:
         # Install dependencies for Debug build
-        #subprocess.run([
-        #    "conan", "install", ".", 
-        #    "--build=missing", 
-        #    "--output-folder=./dependencies", 
-        #    "--profile", f"./external/profiles/{os_type_str}_debug.profile",
-        #    "--settings", "build_type=Debug"  
-        #], check=True)
-        
-        # Install dependencies for Release build
         subprocess.run([
             "conan", "install", ".", 
             "--build=missing", 
             "--output-folder=./dependencies", 
-            "--profile", f"./external/profiles/{os_type_str}_release.profile",
-            "--settings", "build_type=Release" 
+            "--profile", f"./external/profiles/{os_type_str}_debug.profile",
+            "--settings", "build_type=Debug"  
         ], check=True)
+        
+        # Install dependencies for Release build
+        #subprocess.run([
+        #    "conan", "install", ".", 
+        #    "--build=missing", 
+        #    "--output-folder=./dependencies", 
+        #    "--profile", f"./external/profiles/{os_type_str}_release.profile",
+        #    "--settings", "build_type=Release" 
+        #], check=True)
         
         print(f"Conan installation completed successfully for {os_type_str}.")
     

@@ -8,7 +8,7 @@
 class HashManager
 {
 public:
-    HashManager() : m_algorithm(Hash::SHA_256){}
+    HashManager(bool &status);
 
     void setCallbackChangingHash(std::function<void(Hash)> callback);
 
@@ -23,6 +23,8 @@ public:
     Status configureHash();
 
 private:
+
+    bool &status_running;
 
     Hash m_algorithm;
 

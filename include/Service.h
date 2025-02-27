@@ -55,23 +55,21 @@ inline void printFinalMessage()
     std::cout << "\nThank you, have a nice day\n";
 }
 
-
-inline std::string getInputFromConsoleNum()
+inline std::optional<int> getInputFromConsoleNum()
 {
-    std::string input = "0";
-    if(!std::cin.eof())
-    {
-        std::cin >> input;
-    }
+    int input;
+    std::cin >> input;
+    if(std::cin.eof())
+        return std::nullopt;
     return input;
 }
 
-inline std::string getInputFromConsoleString()
+inline std::optional<std::string> getInputFromConsoleString()
 {
     std::string input;
     std::cin >> input;
     if(std::cin.eof())
-        input = "_";
+        return std::nullopt;
     return input;
 }
 
@@ -99,7 +97,8 @@ inline Status verifyIfFile(const std::string &path)
 }
 
 inline std::vector<unsigned char> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary);
+    std::filesystem::path path_ = std::filesystem::absolute(filename);
+    std::ifstream file(path_, std::ios::binary);
     if (!file) {
         throw std::runtime_error("Failed to open file: " + filename);
     }

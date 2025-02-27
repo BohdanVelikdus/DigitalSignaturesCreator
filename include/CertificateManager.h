@@ -12,12 +12,13 @@
 #include "openssl/encoder.h"
 #include "openssl/bio.h"
 
+#include <utility>
 
 class CertificateManager
 {
 public:
 
-    CertificateManager() = default;
+    CertificateManager(bool &status);
 
     void setAlgorithmChange(Hash newAlgo);
 
@@ -48,7 +49,7 @@ public:
     // end of adding private key
 
     // signing routines 
-    Status digitalSignDocument(const std::string &filename);
+    std::pair<Status, std::vector<unsigned char>> digitalSignDocument(const std::string &filename);
 
     void writeSignatureIntoFile(const std::string &path, std::vector<unsigned char> &signature);
     //end signing routines
@@ -60,16 +61,26 @@ public:
     // end a public key routines
 
     //verifying digital sign routines
-    void verifyDigitalSign(const std::string& pathToFile, const std::string& pathToSignature);
+    bool verifyDigitalSign(const std::string& pathToFile, const std::string& pathToSignature);
     // end a verifying routines
+
+    bool &status_running;
+
+#ifdef DEBUG
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> public_createRSACert(Passwd passwd, Hash hash, Sign sign);
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> public_createECDSACert(Passwd passwd, Hash hash, Sign sign);
+#endif
+
 
 private:
 
-    Status createECDSACert(std::fstream& filePRI, std::fstream& filePUB);
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> extractPrivateKey();
 
-    Status createRSACert(std::fstream &filePRI, std::fstream &filePUB);
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> createECDSACert();
 
-    Status WriteCertToFiles(std::fstream &filePRI, std::fstream &filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY *)>> &&keyPair, Sign certType);
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> createRSACert();
+
+    std::pair<Status, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY*)>>> WriteCertToFiles(std::fstream &filePRI, std::fstream &filePUB, std::unique_ptr<EVP_PKEY, std::function<void(EVP_PKEY *)>> &&keyPair, Sign certType);
     
 
     Hash m_algorithm;

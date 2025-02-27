@@ -22,8 +22,10 @@ public:
 
     void start();
 
+    bool status_running = true;
+
 private:
-    std::unique_ptr<HashManager> m_hashManager;
-    std::unique_ptr<CertificateManager> m_certificateManager;
+    std::optional<std::unique_ptr<HashManager>> m_hashManager;
+    std::optional<std::unique_ptr<CertificateManager>> m_certificateManager;
 };
 

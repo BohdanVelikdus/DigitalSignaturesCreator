@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <assert.h>
 
 #include <signal.h>
 #include <stdlib.h>
@@ -17,17 +18,18 @@ using namespace std::literals;
 #define CYAN    "\033[36m"
 #define YELLOW  "\033[33m"
 
-bool status_running = true;
+
 
 std::shared_ptr<Program> pr;
 
 void exitGracefully(int)
 {
-    status_running = false;
+    pr->status_running = false;
     std::cin.rdbuf()->pubsync(); 
     std::cin.setstate(std::ios::eofbit);
     fclose(stdin);
 }
+
 
 int main() 
 {
@@ -44,6 +46,5 @@ int main()
     std::cout << "=====================\n";
     pr = std::make_shared<Program>();
     pr->start();
-
     return 0;
 }
