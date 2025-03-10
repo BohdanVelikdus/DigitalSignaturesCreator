@@ -75,7 +75,7 @@ target_link_libraries(CertificateManager PUBLIC
 add_library(HashManager STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/HashManager.cpp)
 target_include_directories(HashManager PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${OPENSSL_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
 )
 target_link_libraries(HashManager PUBLIC 
     ${OPENSSL_LIBRARIES}
