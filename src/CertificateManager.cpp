@@ -62,7 +62,7 @@ Status CertificateManager::createNewCertificatePrivateKey()
             return Status::FAILURE;
         }
         else
-        {
+        {  
             status = verifyIfFolder(val);
             if(status == Status::FAILURE)
             {

@@ -58,11 +58,14 @@ else()
     find_package(OpenSSL REQUIRED CONFIG)
 endif()
 
+message(STATUS "Headers ${OPENSSL_INCLUDE_DIR}")
+message(STATUS "Libs ${OPENSSL_LIBRARIES}")
+
 # Creating the CertificateManager static library
 add_library(CertificateManager STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/CertificateManager.cpp)
 target_include_directories(CertificateManager PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${OPENSSL_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
 )
 target_link_libraries(CertificateManager PUBLIC 
     ${OPENSSL_LIBRARIES}
